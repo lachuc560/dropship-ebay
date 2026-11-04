@@ -1,0 +1,18 @@
+{
+  "_comment": "Selector theo site. Khi site đổi giao diện chỉ cần sửa file này, không sửa code (mục 4.1). Ưu tiên JSON-LD; selector chỉ là phương án dự phòng.",
+  "amazon": {
+    "title": ["#productTitle", "h1#title span"],
+    "price": [
+      "span.a-price span.a-offscreen",
+      "#corePrice_feature_div span.a-offscreen",
+      "#priceblock_ourprice",
+      "#priceblock_dealprice"
+    ],
+    "brand": ["#bylineInfo", "a#bylineInfo"],
+    "bullets": ["#feature-bullets li:not(.aok-hidden) span.a-list-item"],
+    "description": ["#productDescription", "#aplus"],
+    "images": ["#altImages img", "#imageBlock img"],
+    "availability": ["#availability span", "#availability"],
+    "specs_rows": ["#productDetails_techSpec_section_1 tr", "#productDetails_detailBullets_sections1 tr", "#detailBullets_feature_div li"]
+  }
+}

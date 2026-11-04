@@ -1,0 +1,16 @@
+{
+  "name": "dropship-ebay",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Chrome extension + Cloudflare backend for dropship listing from Amazon/Walmart/eBay to eBay (Sandbox)",
+  "packageManager": "pnpm@11.28.5",
+  "scripts": {
+    "dev:ext": "pnpm --filter extension dev",
+    "dev:worker": "pnpm --filter worker dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

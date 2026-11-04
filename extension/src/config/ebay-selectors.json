@@ -1,0 +1,21 @@
+{
+  "_comment": "Selector cho form tạo listing eBay SANDBOX. Đang để trống: điền sau khi có form thật (mục 4.4, bước B). Mỗi trường là danh sách selector thử theo thứ tự. Không được có selector nào bấm List/Submit/Revise.",
+  "sandbox_host": "sandbox.ebay.com",
+  "account_name": [],
+  "fields": {
+    "title": [],
+    "sku": [],
+    "category": [],
+    "condition": [],
+    "price": [],
+    "quantity": [],
+    "description": [],
+    "photos_input": [],
+    "business_policy_shipping": [],
+    "business_policy_return": [],
+    "business_policy_payment": [],
+    "handling_time": []
+  },
+  "item_specifics_container": [],
+  "forbidden_selectors": ["button[type=submit]", "[data-testid*='list']", "[data-testid*='submit']", "[data-testid*='revise']"]
+}

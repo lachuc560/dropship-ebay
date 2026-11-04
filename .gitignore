@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+.output/
+.wxt/
+.wrangler/
+
+# Secrets — KHÔNG commit
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+.dev.vars
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*

@@ -1,0 +1,28 @@
+name = "dropship-api"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+
+# D1 database (tạo bằng: wrangler d1 create dropship-db)
+[[d1_databases]]
+binding = "DB"
+database_name = "dropship-db"
+database_id = "32c4d8c4-73a4-4fe4-b027-2dfcd2a589fd"
+migrations_dir = "migrations"
+
+# R2 bucket lưu ảnh đã xử lý (tạo bằng: wrangler r2 bucket create dropship-images)
+# preview_bucket_name: bucket riêng cho `wrangler dev --remote`, tránh ghi dữ liệu test vào bucket thật.
+[[r2_buckets]]
+binding = "R2"
+bucket_name = "dropship-images"
+preview_bucket_name = "dropship-images-preview"
+
+# Cloudflare Images: resize/chuyển JPG ở edge (Worker không chạy được sharp).
+[images]
+binding = "IMAGES"
+
+# Biến không nhạy cảm. Secret (AI key...) đặt bằng `wrangler secret put`, KHÔNG để ở đây.
+[vars]
+ENVIRONMENT = "development"
+EBAY_ENV = "sandbox"
+# URL công khai của bucket ảnh. Hiện dùng r2.dev để test; khi có domain (ví dụ img.tencongty.com) thì đổi lại.
+PUBLIC_IMAGE_BASE = "https://pub-1a711b0f6b40478c91fc8882cf55627e.r2.dev"
