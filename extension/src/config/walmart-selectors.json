@@ -1,0 +1,16 @@
+{
+  "_comment": "Selector Walmart đã kiểm chứng trên trang thật (KitchenAid, Samsung Tablet, Acer Chromebook). Ưu tiên JSON-LD nếu có; trang Walmart không có schema.org/Product nên selector là nguồn chính. productTileImage là ảnh gợi ý sản phẩm khác: KHÔNG được lấy.",
+  "title": ["h1"],
+  "price": ["[itemprop='price']", "[data-seo-id='hero-price']"],
+  "brand": ["[itemprop='brand']"],
+  "bullets": ["[data-testid='product-highlights'] li", "#product-about li", "section[aria-label*='highlights'] li"],
+  "description": ["[data-testid='product-description-content']", "#product-description", "[data-testid='product-description']"],
+  "images": [
+    "img[data-testid='hero-image']",
+    "img.hero-image",
+    "img.media-thumbnail",
+    "[data-testid='media-thumbnail'] img"
+  ],
+  "exclude_images": ["productTileImage", "responsiveHeader"],
+  "availability": ["[data-testid='fulfillment-badge']"]
+}

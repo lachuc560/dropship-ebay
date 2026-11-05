@@ -27,7 +27,7 @@ export interface Env {
 const app = new Hono<{ Bindings: Env }>();
 
 // Extension gọi từ origin chrome-extension:// nên cần CORS.
-app.use('*', cors({ origin: (origin) => origin ?? '*', allowMethods: ['GET', 'POST', 'OPTIONS'] }));
+app.use('*', cors({ origin: (origin) => origin ?? '*', allowMethods: ['GET', 'POST', 'DELETE', 'OPTIONS'] }));
 
 app.get('/health', (c) =>
   c.json({
@@ -174,6 +174,54 @@ app.get('/products/:id', async (c) => {
     .bind(id)
     .all();
   return c.json({ ok: true, product, images: images.results });
+});
+
+// DELETE /products/:id: xoá MỘT sản phẩm hoàn toàn: ảnh R2 (prefix {source_id}/), rồi D1 theo thứ tự khoá ngoại.
+// Không đụng sản phẩm khác. Ảnh R2 xoá trước; nếu D1 lỗi sau đó thì có thể chạy lại để dọn tiếp.
+app.delete('/products/:id', async (c) => {
+  const id = Number(c.req.param('id'));
+  if (!Number.isInteger(id)) return c.json({ ok: false, error: 'id không hợp lệ' }, 400);
+
+  const product = await c.env.DB.prepare('SELECT id, source_id FROM products WHERE id = ?').bind(id).first<{ id: number; source_id: string }>();
+  if (!product) return c.json({ ok: false, error: 'không tìm thấy sản phẩm' }, 404);
+
+  const prefix = `${product.source_id}/`;
+  if (!/^[A-Za-z0-9_-]{1,64}\/$/.test(prefix)) return c.json({ ok: false, error: 'SKU không hợp lệ, không xoá để tránh xoá nhầm' }, 400);
+
+  const listed = await c.env.R2.list({ prefix });
+  const keys = listed.objects.map((o) => o.key).filter((k) => k.startsWith(prefix));
+  if (keys.length > 0) await c.env.R2.delete(keys);
+
+  await c.env.DB.batch([
+    c.env.DB.prepare('DELETE FROM logs WHERE product_id = ?').bind(id),
+    c.env.DB.prepare('DELETE FROM images WHERE product_id = ?').bind(id),
+    c.env.DB.prepare('DELETE FROM drafts WHERE product_id = ?').bind(id),
+    c.env.DB.prepare('DELETE FROM products WHERE id = ?').bind(id),
+  ]);
+
+  return c.json({ ok: true, deleted_product_id: id, deleted_r2_objects: keys.length });
+});
+
+// POST /products/:id/clear-images: xoá ảnh cũ của MỘT sản phẩm (R2 + bảng images), không đụng sản phẩm khác.
+// Dùng trước khi tải lại bộ ảnh mới (cập nhật ảnh). Không xoá bản ghi products.
+app.post('/products/:id/clear-images', async (c) => {
+  const id = Number(c.req.param('id'));
+  if (!Number.isInteger(id)) return c.json({ ok: false, error: 'id không hợp lệ' }, 400);
+
+  const product = await c.env.DB.prepare('SELECT id, source_id FROM products WHERE id = ?').bind(id).first<{ id: number; source_id: string }>();
+  if (!product) return c.json({ ok: false, error: 'không tìm thấy sản phẩm' }, 404);
+
+  // Khoá prefix theo SKU của đúng sản phẩm này: {sku}/ (không dùng prefix chung để tránh xoá nhầm).
+  const prefix = `${product.source_id}/`;
+  if (!/^[A-Za-z0-9_-]{1,64}\/$/.test(prefix)) return c.json({ ok: false, error: 'SKU không hợp lệ' }, 400);
+
+  const listed = await c.env.R2.list({ prefix });
+  const keys = listed.objects.map((o) => o.key).filter((k) => k.startsWith(prefix));
+  if (keys.length > 0) await c.env.R2.delete(keys);
+
+  await c.env.DB.prepare('DELETE FROM images WHERE product_id = ?').bind(id).run();
+
+  return c.json({ ok: true, deleted_objects: keys.length });
 });
 
 // POST /products/:id/upload-image: nhận 1 ảnh đã được extension tải bằng trình duyệt (mục 4.2).
@@ -435,6 +483,63 @@ app.post('/products/:id/approve', async (c) => {
   await c.env.DB.prepare("UPDATE drafts SET approved_at = datetime('now') WHERE id = ?").bind(draft.id).run();
   await c.env.DB.prepare("UPDATE products SET status = 'approved' WHERE id = ?").bind(id).run();
   return c.json({ ok: true, status: 'approved' });
+});
+
+// GET /products/:id/candidates: danh sách ảnh ứng viên của sản phẩm (tối đa 12) và số lượng có thể lưu.
+app.get('/products/:id/candidates', async (c) => {
+  const id = Number(c.req.param('id'));
+  if (!Number.isInteger(id)) return c.json({ ok: false, error: 'id không hợp lệ' }, 400);
+
+  const product = await c.env.DB.prepare('SELECT id FROM products WHERE id = ?').bind(id).first();
+  if (!product) return c.json({ ok: false, error: 'không tìm thấy sản phẩm' }, 404);
+
+  const rows = await c.env.DB
+    .prepare('SELECT position, url, r2_key, selected FROM images WHERE product_id = ? ORDER BY position LIMIT ?')
+    .bind(id, MAX_IMAGES_PER_PRODUCT)
+    .all<{ position: number; url: string; r2_key: string | null; selected: number }>();
+
+  const images = rows.results.map((r) => ({
+    position: r.position,
+    url: r.url,
+    selected: r.selected === 1,
+    uploaded: !!r.r2_key && !r.r2_key.startsWith('pending/'),
+  }));
+
+  return c.json({
+    ok: true,
+    max: MAX_IMAGES_PER_PRODUCT,
+    count: images.length,
+    selected_count: images.filter((i) => i.selected).length,
+    images,
+  });
+});
+
+// POST /products/:id/candidates/selection: đặt lại lựa chọn ảnh. Body: { positions: number[] }.
+// Ảnh không nằm trong danh sách sẽ bị bỏ chọn. Không quá 12 ảnh được chọn.
+app.post('/products/:id/candidates/selection', async (c) => {
+  const id = Number(c.req.param('id'));
+  if (!Number.isInteger(id)) return c.json({ ok: false, error: 'id không hợp lệ' }, 400);
+
+  const body = await c.req.json<{ positions?: unknown }>().catch(() => null);
+  if (!body || !Array.isArray(body.positions)) return c.json({ ok: false, error: 'cần positions: number[]' }, 400);
+
+  const positions = body.positions.map(Number);
+  if (positions.some((p) => !Number.isInteger(p) || p < 1 || p > MAX_IMAGES_PER_PRODUCT)) {
+    return c.json({ ok: false, error: `position phải từ 1 đến ${MAX_IMAGES_PER_PRODUCT}` }, 400);
+  }
+  const unique = Array.from(new Set(positions));
+  if (unique.length > MAX_IMAGES_PER_PRODUCT) return c.json({ ok: false, error: `chỉ được chọn tối đa ${MAX_IMAGES_PER_PRODUCT} ảnh` }, 400);
+
+  const product = await c.env.DB.prepare('SELECT id FROM products WHERE id = ?').bind(id).first();
+  if (!product) return c.json({ ok: false, error: 'không tìm thấy sản phẩm' }, 404);
+
+  const stmts = [c.env.DB.prepare('UPDATE images SET selected = 0 WHERE product_id = ?').bind(id)];
+  for (const p of unique) {
+    stmts.push(c.env.DB.prepare('UPDATE images SET selected = 1 WHERE product_id = ? AND position = ?').bind(id, p));
+  }
+  await c.env.DB.batch(stmts);
+
+  return c.json({ ok: true, selected_count: unique.length });
 });
 
 export default app;

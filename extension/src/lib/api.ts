@@ -58,6 +58,52 @@ export async function approveDraft(productId: number): Promise<{ ok: boolean; er
   return { ok: data.ok, error: data.error };
 }
 
+export interface CandidateImage {
+  position: number;
+  url: string;
+  selected: boolean;
+  uploaded: boolean;
+}
+
+export interface CandidatesView {
+  ok: boolean;
+  max: number;
+  count: number;
+  selected_count: number;
+  images: CandidateImage[];
+}
+
+// Danh sách ảnh ứng viên của sản phẩm và số lượng có thể lưu (tối đa 12).
+export async function getCandidates(productId: number): Promise<CandidatesView> {
+  const res = await fetch(`${API_BASE}/products/${productId}/candidates`);
+  return (await res.json()) as CandidatesView;
+}
+
+// Lưu lựa chọn ảnh (danh sách position được chọn).
+export async function setSelection(productId: number, positions: number[]): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch(`${API_BASE}/products/${productId}/candidates/selection`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ positions }),
+  });
+  const data = (await res.json()) as { ok: boolean; error?: string };
+  return { ok: data.ok, error: data.error };
+}
+
+// Xoá một sản phẩm hoàn toàn (D1 + ảnh R2 của sản phẩm đó). Không ảnh hưởng sản phẩm khác.
+export async function deleteProduct(productId: number): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch(`${API_BASE}/products/${productId}`, { method: 'DELETE' });
+  const data = (await res.json()) as { ok: boolean; error?: string };
+  return { ok: data.ok, error: data.error };
+}
+
+// Xoá ảnh cũ của một sản phẩm (R2 + bảng images). Chỉ ảnh của đúng sản phẩm đó.
+export async function clearImages(productId: number): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch(`${API_BASE}/products/${productId}/clear-images`, { method: 'POST' });
+  const data = (await res.json()) as { ok: boolean; error?: string };
+  return { ok: data.ok, error: data.error };
+}
+
 // Tải ảnh gốc bằng fetch trong trình duyệt (mục 4.2), rồi gửi file lên Worker.
 // Trình duyệt dùng cookie/session của trang nguồn nên ít bị chặn hơn server.
 export async function downloadAndUploadImage(

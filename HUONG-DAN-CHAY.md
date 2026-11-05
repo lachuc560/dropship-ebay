@@ -23,7 +23,7 @@ Tuỳ chọn: **VS Code** và **Docker Desktop** nếu muốn chạy trong conta
 ## 2. Tải project
 
 ```powershell
-git clone https://github.com/<tài-khoản-của-bạn>/dropship-ebay.git
+git clone https://github.com/lachuc560/dropship-ebay.git
 cd dropship-ebay
 pnpm install
 ```

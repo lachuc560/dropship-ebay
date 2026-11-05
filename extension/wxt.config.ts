@@ -13,6 +13,7 @@ export default defineConfig({
       'https://*.ebay.com/*',
       'https://*.sandbox.ebay.com/*',
       'https://*.media-amazon.com/*',
+      'https://*.walmartimages.com/*',
       'https://dropship-api.chucla27.workers.dev/*',
       'http://127.0.0.1:8787/*',
       'http://localhost:8787/*',
